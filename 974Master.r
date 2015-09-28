@@ -342,9 +342,12 @@ Exit974 <- Exit974[, -which(names(Exit974) %in% "email")]
 MasterList974 <- list(master974, Exit974, demog974, CWSQ974_reshaped)
 
 
+
 compiledMaster974 <- Reduce( function (...) merge(..., by = "substr_ID_974", all = F), MasterList974)
 
-write.csv(compiledMaster974, "~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R/compiledMaster974.csv")
+
+
+# write.csv(compiledMaster974, "~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R/compiledMaster974.csv")
 
 
 
@@ -711,7 +714,4 @@ factoredMaster974$T2Total <- rowSums(factoredMaster974[, T2Names], na.rm = F)
 
 
 write.csv(factoredMaster974, "~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R/factoredMaster974.csv")
-
-
-
 
