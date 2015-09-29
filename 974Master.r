@@ -16,7 +16,61 @@ master974 <- read.csv("~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Num
 # Remove the rows that have incomplete data (as defined by whether I have excluded them or not)
 master974 <- master974[!is.na(master974$Exclude_Y1N0),]
 
-head(master974)
+# ### turn grouping variables into factors
+# 
+master974$Paid_Y1N0 <- factor(master974$Paid_Y1N0, 
+                             levels = c(1, 2),
+                             labels = c("paid", "coursecredit"),
+                             ordered = FALSE)
+
+master974$Group <- factor(master974$Group,
+                          levels = c(1, 2, 3, 4),
+                          labels = c("negative_decaf", "negative_caff", "positive_decaf", "positive_caff"),
+                          ordered = F)
+
+master974$Gene_Y1N0 <- factor(master974$Gene_Y1N0,
+                              levels = c(1,0),
+                              labels = c("positive", "negative"),
+                              ordered = F)
+
+master974$ToldCaf_Y1N0 <- factor(master974$ToldCaf_Y1N0,
+                                 levels = c(1,0),
+                                 labels = c("toldCaf", "toldDecaf"),
+                                 ordered = F)
+
+master974$ScreenedY1N0 <- factor(master974$ScreenedY1N0,
+                                 levels = c(1, 0),
+                                 labels = c("screened", "notScreened"),
+                                 ordered = F)
+
+master974$CoffeeType_BNS1BWS2WNS3WWS4 <- factor(master974$CoffeeType_BNS1BWS2WNS3WWS4,
+                                                levels = c(1,2,3,4),
+                                                labels = c("blackNoSugar", "blackWithSugar", "whiteNoSugar", "whiteWithSugar"),
+                                                ordered = F)
+
+master974$Gender_F1M0 <- factor(master974$Gender_F1M0, levels = c(1,0),
+                                labels = c("female", "male"),
+                                ordered = F)
+
+master974$Verbal_CompliedY1N0 <- factor(master974$Verbal_CompliedY1N0,
+                                        levels = c(1,0),
+                                        labels = c("complied", "didNotComply"),
+                                        ordered = F) 
+
+master974$Verbal_KnowSuspectY1N0 <- factor(master974$Verbal_KnowSuspectY1N0,
+                                        levels = c(1,0),
+                                        labels = c("complied", "didNotComply"),
+                                        ordered = F) 
+
+master974$Exclude_Y1N0 <- factor(master974$Exclude_Y1N0,
+                                 levels = c(1, 0),
+                                 labels = c("exclude", "include"),
+                                 ordered = F)
+
+
+
+
+
 
 
 ####@@@@@@@@@@@@@@@@@ 2. Demographics questionnaire
@@ -714,4 +768,23 @@ factoredMaster974$T2Total <- rowSums(factoredMaster974[, T2Names], na.rm = F)
 
 
 write.csv(factoredMaster974, "~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R/factoredMaster974.csv")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
