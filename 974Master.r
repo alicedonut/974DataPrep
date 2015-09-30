@@ -16,7 +16,154 @@ master974 <- read.csv("~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Num
 # Remove the rows that have incomplete data (as defined by whether I have excluded them or not)
 master974 <- master974[!is.na(master974$Exclude_Y1N0),]
 
-head(master974)
+# ### turn grouping variables into factors
+# 
+master974$Paid_Y1N0 <- factor(master974$Paid_Y1N0, 
+                             levels = c(1, 2),
+                             labels = c("paid", "coursecredit"),
+                             ordered = FALSE)
+
+master974$Group <- factor(master974$Group,
+                          levels = c(1, 2, 3, 4),
+                          labels = c("negative_decaf", "negative_caff", "positive_decaf", "positive_caff"),
+                          ordered = F)
+
+master974$Gene_Y1N0 <- factor(master974$Gene_Y1N0,
+                              levels = c(1,0),
+                              labels = c("positive", "negative"),
+                              ordered = F)
+
+master974$ToldCaf_Y1N0 <- factor(master974$ToldCaf_Y1N0,
+                                 levels = c(1,0),
+                                 labels = c("toldCaf", "toldDecaf"),
+                                 ordered = F)
+
+master974$ScreenedY1N0 <- factor(master974$ScreenedY1N0,
+                                 levels = c(1, 0),
+                                 labels = c("screened", "notScreened"),
+                                 ordered = F)
+
+master974$CoffeeType_BNS1BWS2WNS3WWS4 <- factor(master974$CoffeeType_BNS1BWS2WNS3WWS4,
+                                                levels = c(1,2,3,4),
+                                                labels = c("blackNoSugar", "blackWithSugar", "whiteNoSugar", "whiteWithSugar"),
+                                                ordered = F)
+
+master974$Gender_F1M0 <- factor(master974$Gender_F1M0, levels = c(1,0),
+                                labels = c("female", "male"),
+                                ordered = F)
+
+master974$Verbal_CompliedY1N0 <- factor(master974$Verbal_CompliedY1N0,
+                                        levels = c(1,0),
+                                        labels = c("complied", "didNotComply"),
+                                        ordered = F) 
+
+master974$Verbal_KnowSuspectY1N0 <- factor(master974$Verbal_KnowSuspectY1N0,
+                                        levels = c(1,0),
+                                        labels = c("complied", "didNotComply"),
+                                        ordered = F) 
+
+master974$Exclude_Y1N0 <- factor(master974$Exclude_Y1N0,
+                                 levels = c(1, 0),
+                                 labels = c("exclude", "include"),
+                                 ordered = F)
+
+
+
+########################## Add RVIP scores to master 974 #########################################
+
+
+RVIP974 <- read.csv("~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R/RVIP_summary.iqdat.csv")
+
+
+
+# converts the crappy inquisit date format to ISO 8601 
+RVIP974$script.startdate <- as.Date(ifelse(nchar(RVIP974$script.startdate)==5, # IF number of characters equals 5
+                                           paste("0", RVIP974$script.startdate ,sep=""), # add a 0 to the front
+                                           RVIP974$script.startdate), # otherwise read it as is.
+                                    "%m%d%y") # read it as this format
+
+#RVIP974$newDateAlt <- as.Date(sprintf("%06d", RVIP974$script.startdate), "%m%d%y") # this does the same thing as above
+
+# creates new column merging the date column and the time column
+RVIP974 <- within(RVIP974, { dateTime = format(as.POSIXct(paste(RVIP974$script.startdate, RVIP974$script.starttime)), "%Y-%m-%d %H:%M:%S") })
+
+# from lubridate package turns new dateTime column into POSIX object
+RVIP974$dateTime <- parse_date_time(RVIP974$dateTime, "%Y%m%d %H%M%S")
+
+
+# removes the now-superfluous date and time columns
+RVIP974 <- RVIP974[, -which(names(RVIP974) %in% c("script.startdate", "script.starttime", "values.SumTargets") )]
+
+
+# renames columns to more tractable names using the rename function from plyr
+RVIP974 <- rename(RVIP974, c("script.subjectid" = "ID",
+                             "values.SumHit" = "sumhit",
+                             "values.SumFA" = "sumfa"))
+
+
+# accuracy score: p(Hit) - p(FA)/ 1 - p(FA)
+
+pFA <- RVIP974$sumfa/128.67
+
+pHit <- RVIP974$sumhit/38
+
+RVIP974$sumacc <- (pHit - pFA)/ (1 - pFA)
+
+
+
+
+####################### Turning long into wide #########################
+
+# ddply applies a function to a subset of a dataframe. ID is the variable we are subsetting by. Here we are creating a new column with each entry as the rank order of that row within the subset that row belongs to (in this case ID).
+RVIP974 <- ddply(RVIP974, 
+                 "ID", 
+                 function(subsetRows) {
+                   subsetRows$newCol <- order(subsetRows$dateTime) 
+                   return(subsetRows)
+                 }
+)
+
+
+# now we give the new column codes better names in a new column
+
+RVIP974$testCode <- mapvalues(RVIP974$newCol,
+                              from = c(1,2,3),
+                              to = c("B1", "T1", "T2"),
+                              warn_missing = T)
+
+# remove now-superfluous rank column
+RVIP974 <- RVIP974[, -which(names(RVIP974) %in% c("newCol", "dateTime"))]
+
+#reorder columns
+
+RVIP974 <- RVIP974[c("ID", "testCode", "sumhit", "sumfa", "sumacc")] 
+
+
+# now we reshape the data into wide format
+
+RVIP974_reshaped <- reshape(RVIP974, idvar = "ID", timevar = "testCode", direction = "wide", sep="")
+
+
+# make a vector of all column names except ID
+RVIP974ColNames <- colnames(RVIP974_reshaped[,-which(names(RVIP974) %in% "ID")])
+
+
+# search for non-non-caps. when found put them at front
+RVIP974ColNamesSub <- gsub("(.*)([A-Z][0-9])$", "\\2\\1", RVIP974ColNames)
+
+# rename col names 1st arg is dataframe, second is old names, last is new names.
+setnames(RVIP974_reshaped, RVIP974ColNames, RVIP974ColNamesSub)
+
+
+
+################### merge RVIP files with master csv file ############################# 
+
+
+mastList974 <- list(master974, RVIP974_reshaped)
+
+
+masterCSV974 <- Reduce( function (...) merge(..., by = "ID", all = F), mastList974)
+
 
 
 ####@@@@@@@@@@@@@@@@@ 2. Demographics questionnaire
@@ -248,7 +395,7 @@ CWSQ974 <- CWSQ974[, -which(names(CWSQ974) %in% survNumEmail)]
 
 # Go from long to wide, using the survey code as the suffix for each variable
 
-CWSQ974_reshaped <- reshape(CWSQ974, idvar="substr_ID_974", timevar="SurveyCode", direction="wide", sep = "") # you might want to order the column-naming convention here so that the test name (e.g. QB1, QB2, QT1 etc) comes first followed by the 
+CWSQ974_reshaped <- reshape(CWSQ974, idvar="substr_ID_974", timevar="SurveyCode", direction="wide", sep = "") 
 
 
 # Giving columns proper names with Day/Test number as prefix
@@ -339,7 +486,7 @@ Exit974 <- Exit974[, -which(names(Exit974) %in% "email")]
 
 # Reference category is substr_ID
 
-MasterList974 <- list(master974, Exit974, demog974, CWSQ974_reshaped)
+MasterList974 <- list(masterCSV974, Exit974, demog974, CWSQ974_reshaped)
 
 
 
@@ -714,4 +861,24 @@ factoredMaster974$T2Total <- rowSums(factoredMaster974[, T2Names], na.rm = F)
 
 
 write.csv(factoredMaster974, "~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R/factoredMaster974.csv")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
