@@ -84,6 +84,9 @@ RVIP974$script.startdate <- as.Date(ifelse(nchar(RVIP974$script.startdate)==5, #
 
 #RVIP974$newDateAlt <- as.Date(sprintf("%06d", RVIP974$script.startdate), "%m%d%y") # this does the same thing as above
 
+# ditto for this command using the mdy function from lubridate
+# RVIP974$newDateAlt2 <- as.Date(mdy(RVIP974$script.startdate))
+
 # creates new column merging the date column and the time column
 RVIP974 <- within(RVIP974, { dateTime = format(as.POSIXct(paste(RVIP974$script.startdate, RVIP974$script.starttime)), "%Y-%m-%d %H:%M:%S") })
 
@@ -833,8 +836,6 @@ factoredMaster974$T2CravingFac <- rowSums(factoredMaster974[, T2CravingFacNames]
 ##### Total CWSQ Scores across each day
 
 
-
-
 # removing the email element from the list of CWSQ items set up in 974DataPrep
 CWSQ974Nom <- CWSQ974Nam[-33]
 
@@ -860,25 +861,19 @@ factoredMaster974$T2Total <- rowSums(factoredMaster974[, T2Names], na.rm = F)
 
 
 
-write.csv(factoredMaster974, "~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R/factoredMaster974.csv")
+########## Rearrange ####################
 
 
 
+# rearrange columns
+factoredMaster974 <-  factoredMaster974[, c(2, 5, 8, 1, 7, 3, 4, 10, 9, 6, 11:206)]
 
 
+# reorder dataframe according to id no
+factoredMaster974 <- factoredMaster974[order(factoredMaster974$ID),]
 
 
-
-
-
-
-
-
-
-
-
-
-
-
+# write to file
+write.csv(factoredMaster974, "~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R/factoredMaster974.csv", row.names = F)
 
 
