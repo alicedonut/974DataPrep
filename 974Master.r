@@ -877,3 +877,22 @@ factoredMaster974 <- factoredMaster974[order(factoredMaster974$ID),]
 write.csv(factoredMaster974, "~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R/factoredMaster974.csv", row.names = F)
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
