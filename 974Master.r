@@ -919,13 +919,18 @@ T2Names <- paste("T2", CWSQ974Nom, sep="")
 factoredMaster974$T2Total <- rowSums(factoredMaster974[, T2Names], na.rm = F) 
 
 
+# calculate difference score for withdrawal
+factoredMaster974$testDiff <- factoredMaster974$T1Total - factoredMaster974$T2Total 
+
 
 ########## Rearrange ####################
 
 
 
 # rearrange columns
-factoredMaster974 <-  factoredMaster974[, c(2, 5, 8, 1, 7, 3, 4, 10, 9, 6, 11:206)]
+factoredMaster974 <-  factoredMaster974[, c(2, 5, 8, 1, 7, 3, 4, 10, 9, 6, 11, 12:length(factoredMaster974))]
+
+length(factoredMaster974)
 
 
 # reorder dataframe according to id no
@@ -934,10 +939,6 @@ factoredMaster974 <- factoredMaster974[order(factoredMaster974$ID),]
 
 # write to file
 write.csv(factoredMaster974, "~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R/factoredMaster974.csv", row.names = F)
-
-
-
-
 
 
 

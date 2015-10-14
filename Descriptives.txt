@@ -1,0 +1,30 @@
+setwd("~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R")
+
+source("974Master.R")
+
+# calculate means per row
+
+
+# means for gene info
+
+groupMeans974Gene <- aggregate(cbind(factoredMaster974$B1Total,
+                                        factoredMaster974$T1Total,
+                                        factoredMaster974$T2Total) ~ factoredMaster974$Gene_Y1N0, FUN = mean)
+
+# means for caff info
+
+groupMeans974Caf <- aggregate(cbind(factoredMaster974$B1Total,
+                                        factoredMaster974$T1Total,
+                                        factoredMaster974$T2Total) ~ factoredMaster974$ToldCaf_Y1N0, FUN = mean)
+
+
+groupMeans974Gene
+groupMeans974Caf
+
+# calculate numbers in each group using ddply from plyr package
+
+groupRows974 <- ddply( factoredMaster974, "Group", nrow)
+
+groupRows974
+
+
