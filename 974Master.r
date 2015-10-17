@@ -75,7 +75,6 @@ master974$Exclude_Y1N0 <- factor(master974$Exclude_Y1N0,
 
 
 
-
 ############################### Add RVIP to master using raw RVIP files from the folder ##########################
 
 
@@ -268,8 +267,58 @@ demog974 <- rename(demog974, c("Q1"="genderM1F0",
                                "Q31"="email"
 ))
 
+
+
 # setnames(demog974, c("Q1", "Q2", "Q3_1"), c("gender", "Age", "Emp_FT")) # uses setnames function from data.table package to reassign names in a similar way as rename function above but with slightly different syntax
 
+
+
+# Now we are going to make a composite column for all the employment types. First we create a data frame to work with
+
+emp <- data.frame(demog974$emp_FT,
+                  demog974$emp_Casual, 
+                  demog974$emp_Vol,
+                  demog974$emp_UnEmp,
+                  demog974$emp_Student,
+                  demog974$emp_Retired,
+                  demog974$emp_Other
+)
+
+###### this creates the new column from the dataframe above and adds it to the main demog974 spreadsheet
+
+demog974$emp <- do.call(pmax, col(emp)*replace(emp, is.na(emp), 0))
+
+# demog974$emp on the left of the '<-' creates a new column in the emp dataframe. do.call applies the first argument in the parentheses to the specified arguments in the second division after the comma. So here pmax chooses a per-row maximum from the dataframe created by the second argument and passes it to the vector/column demog974$emp (without the pmax command the second part of the function yields three columns not one, which is what we want). 'col(emp)' makes a matrix correpsonding to the column numbers (so all row entries in that column are the same: 1 in col 1, 2 in col 2, 3 in etc). It then multiplies this by another matrix 'replace(emp, is.na(emp), 0)' which replaces the df matrix with a new matrix of the same dimensions as df where all NA entries zero (and all non-zeros, which are 1s in this case remain 1). Mutliplying anything by zero prodices zero so the only nonzero entries left in the resulting matrix are the column numbers. It is these that are passed into df$Compcol. If there are two entries in each row then the maximum row entry is chosen to pass into the composite column (see row one of demog974$emp)
+
+## convert the new data column to a factor
+
+demog974$emp <- factor(demog974$emp,
+                       levels = c(1,2,3,4,5,6,7),
+                       labels = c("fulltime",
+                                  "casual",
+                                  "volunteer",
+                                  "unemployed",
+                                  "student",
+                                  "retired",
+                                  'other')
+)
+
+
+# Now replace NA with 0
+
+numNames <- c("numCupsTea",
+              "numCola", 
+              "numEnergyDrinks")
+
+
+demog974[, numNames] <- replace(demog974[,numNames], is.na(demog974[,numNames]), 0)
+
+# Now create new total caffeine score column. These come from the coding I applied to 1034. See SPSS Recodes syntax for amounts. The coffee figure was averaged across the different types of coffee.
+
+demog974$totCaffeine <- demog974$numCupsCoffee*85 +
+                        demog974$numCupsTea*30 +
+                        demog974$numCola*37 +
+                        demog974$numEnergyDrinks*80
 
 colsToKeep <- c("genderM1F0", 
                 "age",
@@ -298,8 +347,10 @@ colsToKeep <- c("genderM1F0",
                 "energyDrinksEveryday",
                 "typeEnergyDrinks",
                 "numEnergyDrinks",
-                "email"
-)
+                "email",
+                "emp",
+                "totCaffeine")
+
 
 
 # the command below selects those columns in demog974 which are included in the vector colsToKeep
@@ -936,9 +987,31 @@ length(factoredMaster974)
 # reorder dataframe according to id no
 factoredMaster974 <- factoredMaster974[order(factoredMaster974$ID),]
 
+# change name of DurationCaff and NumQuit Variables
+
+# factoredMaster974 <- setnames(factoredMaster974, c("DurationCaff.x", "NumQuit.x"), c("DurationCaff", "NumQuit"))
+
 
 # write to file
 write.csv(factoredMaster974, "~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R/factoredMaster974.csv", row.names = F)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
