@@ -1,3 +1,4 @@
+
 setwd("~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R")
 
 library(reshape2)
@@ -72,7 +73,7 @@ master974$Exclude_Y1N0 <- factor(master974$Exclude_Y1N0,
                                  ordered = F)
 
 
-
+#write.csv(master974, "~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R/master974.csv", row.names = FALSE)
 
 
 ############################### Add RVIP to master using raw RVIP files from the folder ##########################
@@ -119,13 +120,16 @@ for (n in 1:length(oldRVIPNames)) { #specifies a loop the same length as the num
 RVIP974frame <- data.frame(cbind(subjectRVIPRaw, timeRVIPRaw, dateRVIPRaw, sumHitRVIPRaw, sumFARVIPRaw, RT), stringsAsFactors = F)
 
 
+# write.csv(RVIP974frame, "~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R/RVIPRaw.csv", row.names = FALSE)
+
+
 ####### merging date and time columns
 
-# this adds 0 to front of date vector so that 
+# this adds 0 to front of date vector so that it is in the correct format
 RVIP974frame$dateRVIPRaw <- as.Date(ifelse(nchar(RVIP974frame$dateRVIPRaw)==5, # if no of char is 5
-                                           paste("0", RVIP974frame$dateRVIPRaw, sep=""), # add a 0
-                                           RVIP974frame$dateRVIPRaw), # otherwise keep it as-is
-                                    "%m%d%y") # convert it to the following format (part of as.Date function argument)
+                                                 paste("0", RVIP974frame$dateRVIPRaw, sep=""), # add a 0
+                                                 RVIP974frame$dateRVIPRaw), # otherwise keep it as-is
+                                                 "%m%d%y") # convert it to the following format (part of as.Date function argument)
 
 # this merges the columns into one
 RVIP974frame <- within(RVIP974frame, { dateTime = format(as.POSIXct(paste(RVIP974frame$dateRVIPRaw, RVIP974frame$timeRVIPRaw)), "%Y-%m-%d %H:%M:%S") })
@@ -135,6 +139,8 @@ RVIP974frame <- RVIP974frame[, -which(names(RVIP974frame) %in% c("dateRVIPRaw", 
 
 # from lubridate package turns new dateTime column into POSIX object
 RVIP974frame$dateTime <- parse_date_time(RVIP974frame$dateTime, "%Y%m%d %H%M%S")
+
+
 
 # rename columns with rename function from plyr
 
@@ -167,9 +173,9 @@ RVIP974frame[, sapply(RVIP974frame, is.numeric)] <- round(RVIP974frame[, sapply(
 
 #from here you can pass this frame onto the ddply function using ID number as reference variable
 
-# ddply applies a function to a subset of a dataframe. ID is the variable we are subsetting by. Here we are creating a new column with each entry as the rank order of that row within the subset that row belongs to (in this case ID).
+# ddply applies a function to a subset of a dataframe. ID is the variable we are subsetting by. Here we are creating a new column (i.e. 'daycode') with each entry as the rank order of that row within the subset that row belongs to (in this case ID).
 
-RVIP974Long <- ddply(RVIP974frame, 
+RVIP974Long <- ddply(RVIP974frame,                     
                      "ID", 
                      function(subsetRows) {
                        subsetRows$daycode <- order(subsetRows$datetime) 
@@ -177,7 +183,7 @@ RVIP974Long <- ddply(RVIP974frame,
                      }
 )
 
-
+#View(RVIP974Long)
 
 # changes day codes to something sensible 
 RVIP974Long$daycode <- mapvalues(RVIP974Long$daycode, from = c(1, 2, 3),
@@ -194,13 +200,13 @@ RVIP974Wide <- reshape(RVIP974Long, idvar = "ID", timevar = "daycode", direction
 # make a vector of all column names except ID
 RVIP974ColNames <- colnames(RVIP974Wide[,-which(names(RVIP974Wide) %in% "ID")])
 
-# search for non-non-caps. when found put them at front
+# search for non-lowercase characters. when found put them at front
 RVIP974ColNamesSub <- gsub("(.*)([A-Z][0-9])$", "\\2\\1", RVIP974ColNames)
 
 # rename col names 1st arg is dataframe, second is old names, last is new names.
 setnames(RVIP974Wide, RVIP974ColNames, RVIP974ColNamesSub)
 
-
+#write.csv(RVIP974Wide, "~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R/RVIP974Wide.csv", row.names = FALSE)
 
 ################### merge RVIP files with master csv file ############################# 
 
@@ -227,7 +233,7 @@ masterCSV974 <- Reduce( function (...) merge(..., by = "ID", all = F), mastList9
 
 
 
-####@@@@@@@@@@@@@@@@@ 2. Demographics questionnaire
+########################### 2. Demographics questionnaire ###############################
 
 all_content_Demog974 <- readLines("~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R/Demographics_and_Caffeine_Use_Questionnaire_974.csv") # this reads in the qualtrics file and converts it to an object
 
@@ -253,7 +259,7 @@ demog974 <- rename(demog974, c("Q1"="genderM1F0",
                                "Q6"="ethnicity",
                                "Q7"="langOtherEng",
                                "Q7_TEXT"="langOtherEng_TEXT",
-                               "Q8"="engFirst",
+                               "Q8"="language",
                                "Q9"="coffeeEveryday",
                                "Q11"="numCupsCoffee",
                                "Q15"="teaEveryday",
@@ -271,7 +277,37 @@ demog974 <- rename(demog974, c("Q1"="genderM1F0",
 
 # setnames(demog974, c("Q1", "Q2", "Q3_1"), c("gender", "Age", "Emp_FT")) # uses setnames function from data.table package to reassign names in a similar way as rename function above but with slightly different syntax
 
+# convert maritalStat to a factor
 
+demog974$maritalStat <- factor(demog974$maritalStat, level = c(1,2,3,4,5,6),
+                               label = c("single",
+                                         "inRelationship",
+                                         "married",
+                                         "divorced",
+                                         "widowed",
+                                         "other"), 
+                               ordered = F)
+
+# transform language factor
+
+demog974$language <- replace(demog974$language, is.na(demog974$language), 0)
+
+demog974$language <- factor(demog974$language, levels = c(0,1,2),
+                            labels = c("engOnly",
+                                       "engFirst",
+                                       "engSecond"),
+                            ordered = F)
+
+
+
+# convert edLevel to a factor
+
+demog974$edLevel <- factor(demog974$edLevel, level = c(1,2,3,4),
+                           label = c("primary",
+                                     "secondary",
+                                     "tertiary",
+                                     "other"),
+                           ordered = F)
 
 # Now we are going to make a composite column for all the employment types. First we create a data frame to work with
 
@@ -288,7 +324,7 @@ emp <- data.frame(demog974$emp_FT,
 
 demog974$emp <- do.call(pmax, col(emp)*replace(emp, is.na(emp), 0))
 
-# demog974$emp on the left of the '<-' creates a new column in the emp dataframe. do.call applies the first argument in the parentheses to the specified arguments in the second division after the comma. So here pmax chooses a per-row maximum from the dataframe created by the second argument and passes it to the vector/column demog974$emp (without the pmax command the second part of the function yields three columns not one, which is what we want). 'col(emp)' makes a matrix correpsonding to the column numbers (so all row entries in that column are the same: 1 in col 1, 2 in col 2, 3 in etc). It then multiplies this by another matrix 'replace(emp, is.na(emp), 0)' which replaces the df matrix with a new matrix of the same dimensions as df where all NA entries zero (and all non-zeros, which are 1s in this case remain 1). Mutliplying anything by zero prodices zero so the only nonzero entries left in the resulting matrix are the column numbers. It is these that are passed into df$Compcol. If there are two entries in each row then the maximum row entry is chosen to pass into the composite column (see row one of demog974$emp)
+# demog974$emp on the left of the '<-' creates a new column in the emp dataframe. do.call applies the first argument in the parentheses to the specified arguments in the second division after the comma. So here pmax chooses a per-row maximum from the dataframe (matrix?) created by the second argument and passes it to the vector/column demog974$emp (without the pmax command the second part of the function yields three columns not one, which is what we want). 'col(emp)' makes a matrix correpsonding to the column numbers (so all row entries in that column are the same: 1 in col 1, 2 in col 2, 3 in etc). It then multiplies this by another matrix 'replace(emp, is.na(emp), 0)' which replaces the emp matrix with a new matrix of the same dimensions as emp where all NA entries become zero (and all non-zeros, which are 1s in this case remain 1). Now the corresponding elements in the two matrices are mulitplied together. Mutliplying anything by zero produces zero so the only nonzero entries left in the resulting matrix are the column numbers. It is these that are passed into demog974$emp. If there are two entries in each row then the maximum row entry is chosen to pass into the composite column (see row one of demog974$emp)
 
 ## convert the new data column to a factor
 
@@ -313,39 +349,26 @@ numNames <- c("numCupsTea",
 
 demog974[, numNames] <- replace(demog974[,numNames], is.na(demog974[,numNames]), 0)
 
-# Now create new total caffeine score column. These come from the coding I applied to 1034. See SPSS Recodes syntax for amounts. The coffee figure was averaged across the different types of coffee.
+# Now create new total caffeine score column. These come from the coding I applied to 1034, which derives from barone and roberts and manufacturers info. See SPSS Recodes syntax for amounts. The coffee figure was averaged across the different types of coffee.
 
 demog974$totCaffeine <- demog974$numCupsCoffee*85 +
                         demog974$numCupsTea*30 +
                         demog974$numCola*37 +
                         demog974$numEnergyDrinks*80
 
+# now we are making a list of col names which we will use to shrink the dataframe to only the cols we want. Notice all the emp columns are ommitted, leaving only the new composite column
 colsToKeep <- c("genderM1F0", 
                 "age",
-                "emp_FT",
-                "emp_Casual",
-                "emp_Vol",
-                "emp_UnEmp",
-                "emp_Student",
-                "emp_Retired",
-                "emp_Other",
-                "emp_OtherTxt",
-                "edLevel",
-                "edLevel_TEXT",
                 "maritalStat",
                 "ethnicity",
-                "langOtherEng",
-                "langOtherEng_TEXT",
-                "engFirst",
+                "language",
+                "edLevel",
                 "coffeeEveryday",
                 "numCupsCoffee",
                 "teaEveryday",
                 "numCupsTea",
                 "colaEveryday",
                 "numCola",
-                "typeCola",
-                "energyDrinksEveryday",
-                "typeEnergyDrinks",
                 "numEnergyDrinks",
                 "email",
                 "emp",
@@ -372,11 +395,163 @@ demog974 <- demog974[, -which(names(demog974) %in% "email")]
 
 # demog974  # to check
 
+# write.csv(demog974, "~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R/demog974.csv", row.names=F)
 
 
 
 
-#################### 3.  Reading in the withdrawal symptom questionnaire #######################
+
+
+
+
+#################### 3. Expectancy questionnaire
+
+all_content_EQ <- readLines("~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R/CEQ974.csv") # this reads the content of the csv file as raw text without trying to parse it into columns. We have to keep it as text until we get rid of the second line, which contains the text of the qualtrics questions as text in each cell. R will see this second row as a string cell belonging under the column heading designated by the top row column headings. Because there is a string in each column R can't make the column numeric and read it properly. qualtrics generates the cell names for the top line automatically. It is these we will keep as they don't have spaces, which R does not like as column names. Once we get rid of this second row of column names the numeric columns just contain numbers and we can parse it properly into columns.
+
+skip_second_EQ <- all_content_EQ[-2] # removes second line with unneeded qualtrics headings
+
+EQ974 <- read.csv(textConnection(skip_second_EQ), header = TRUE, stringsAsFactors = FALSE) # creates new object from the csv file, which has the second line removed
+
+# removes duplicate rows
+EQ974 <- EQ974[!duplicated(EQ974$Q51), ]
+
+colsToKeepEQ <-  c("EQformOfCaffeine",
+                   "EQformOfCaffeine_TEXT",
+                   "EQ1_PicksMeUp",
+                   "EQ2_BetterConvers",
+                   "EQ3_HelpsAvoidEating",
+                   "EQ4_CaffMakesStress",
+                   "EQ5_CaffImprovesAthl",
+                   "EQ6_CaffLessSleepy",
+                   "EQ7_CaffSuppressHunger",
+                   "EQ8_NoCaffMakesMiser",
+                   "EQ9_CaffImproveMood",
+                   "EQ10_NoCaffAnxious",
+                   "EQ11_CaffMakesJittery",
+                   "EQ12_CaffMakesWorkoutsBetter",
+                   "EQ13_NoCaffMakesWithdrawal",
+                   "EQ14_DontLikeCaffFeel",
+                   "EQ15_NoCaffFeelSick",
+                   "EQ16_CaffIncreaseMotiv",
+                   "EQ17_CaffMoreConf",
+                   "EQ18_CaffThrowsSleep",
+                   "EQ19_CaffMakesNervous",
+                   "EQ20_CaffMakesAlert",
+                   "EQ21_CaffSmallMakesAnxious",
+                   "EQ22_CaffImproveConc",
+                   "EQ23_CaffMakesFriendly",
+                   "EQ24_NoCaffNeedCaffDaily",
+                   "EQ25_CaffMakesSweat",
+                   "EQ26_CaffAllowsMealSkipping",
+                   "EQ27_NoCaffMakesDesire",
+                   "EQ28_CaffMakesDifficult",
+                   "EQ29_CaffMakesIrritable",
+                   "EQ30_CaffHelpsMeWork",
+                   "EQ31_CaffMakesHappy",
+                   "EQ32_NoCaffNoFunction",
+                   "EQ33_CaffMakesIrregularHeartbeat",
+                   "EQ34_OftenCraveCaff",
+                   "EQ35_NoCaffTroubleStartingDay",
+                   "EQ36_CaffUpsetsStomach",
+                   "EQ37_TroubleGivingUpCaff",
+                   "EQ38_CaffLateDisruptsSleep",
+                   "EQ39_CaffHelpsControlWeight",
+                   "EQ40_NoCaffMakesHeadache",
+                   "EQ41_CaffImprovesAttention",
+                   "EQ42_CaffMakesSociable",
+                   "EQ43_CaffMakesExerciseLonger",
+                   "EQ44_CaffHelpsMeGetThroughDay",
+                   "EQ45_CaffMakesMoreEnergy",
+                   "EQ46_CaffDecreaseAppetite",
+                   "EQ47_CaffLateMakesInsomnia",
+                   "email"                           
+) 
+
+
+setnames(EQ974, c("Q2", "Q2_TEXT", paste("Q", 4:51, sep="")), colsToKeepEQ) # uses setnames function from data.table package to reassign names in a similar way as rename function above but with slightly different syntax
+
+# transform EQ974, leaving in only the columns listed above
+
+EQ974 <- EQ974[, colsToKeepEQ]
+
+colsToRecode <-  c("EQ1_PicksMeUp",
+                   "EQ2_BetterConvers",
+                   "EQ3_HelpsAvoidEating",
+                   "EQ4_CaffMakesStress",
+                   "EQ5_CaffImprovesAthl",
+                   "EQ6_CaffLessSleepy",
+                   "EQ7_CaffSuppressHunger",
+                   "EQ8_NoCaffMakesMiser",
+                   "EQ9_CaffImproveMood",
+                   "EQ10_NoCaffAnxious",
+                   "EQ11_CaffMakesJittery",
+                   "EQ12_CaffMakesWorkoutsBetter",
+                   "EQ13_NoCaffMakesWithdrawal",
+                   "EQ14_DontLikeCaffFeel",
+                   "EQ15_NoCaffFeelSick",
+                   "EQ16_CaffIncreaseMotiv",
+                   "EQ17_CaffMoreConf",
+                   "EQ18_CaffThrowsSleep",
+                   "EQ19_CaffMakesNervous",
+                   "EQ20_CaffMakesAlert",
+                   "EQ21_CaffSmallMakesAnxious",
+                   "EQ22_CaffImproveConc",
+                   "EQ23_CaffMakesFriendly",
+                   "EQ24_NoCaffNeedCaffDaily",
+                   "EQ25_CaffMakesSweat",
+                   "EQ26_CaffAllowsMealSkipping",
+                   "EQ27_NoCaffMakesDesire",
+                   "EQ28_CaffMakesDifficult",
+                   "EQ29_CaffMakesIrritable",
+                   "EQ30_CaffHelpsMeWork",
+                   "EQ31_CaffMakesHappy",
+                   "EQ32_NoCaffNoFunction",
+                   "EQ33_CaffMakesIrregularHeartbeat",
+                   "EQ34_OftenCraveCaff",
+                   "EQ35_NoCaffTroubleStartingDay",
+                   "EQ36_CaffUpsetsStomach",
+                   "EQ37_TroubleGivingUpCaff",
+                   "EQ38_CaffLateDisruptsSleep",
+                   "EQ39_CaffHelpsControlWeight",
+                   "EQ40_NoCaffMakesHeadache",
+                   "EQ41_CaffImprovesAttention",
+                   "EQ42_CaffMakesSociable",
+                   "EQ43_CaffMakesExerciseLonger",
+                   "EQ44_CaffHelpsMeGetThroughDay",
+                   "EQ45_CaffMakesMoreEnergy",
+                   "EQ46_CaffDecreaseAppetite",
+                   "EQ47_CaffLateMakesInsomnia"                         
+) 
+
+# recode Expectancy questionnaire
+
+for (col_name in colsToRecode) { #for each column name in the vector 'cols_to_reverse_code' 
+  EQ974[,  col_name] <- mapvalues( #apply all the arguments in the curly brackets to 
+    # each. So performs map values function for all entries in each of the columns one at a time.
+    EQ974[, col_name], 
+    from=c(1, 2, 3, 4, 5, 6),
+    to=c(5, 4, 3, 2, 1, 0)
+  )
+}
+
+# creates Substr_ID reference column
+EQ974$substr_ID_974 <- substr(EQ974$email, 1, 5)
+
+# Remove email column
+
+EQ974 <- EQ974[, -which(names(EQ974) %in% "email")]
+
+# unique(EQ974$substr_ID) # checking.
+
+# write.csv(EQ974, "~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R/EQ974.csv", row.names = F)
+
+
+
+
+
+
+
+#################### 4.  Reading in the withdrawal symptom questionnaire #######################
 
 
 ### Need to remove the secondary header from the Qualtrics file by skipping the second line of the csv
@@ -525,12 +700,12 @@ setnames(CWSQ974_reshaped, colnames(CWSQ974_reshaped[,2:100]), CWSQ974Names_re)
 #returns new colnames
 #colnames(CWSQ974_reshaped[, 2:100])
 
+# write.csv(CWSQ974_reshaped, "~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R/CWSQreshaped.csv", row.names = F)
 
 
 
 
-
-####################### 4. Exit Questionnaires #############################################
+####################### 5. Exit Questionnaires #############################################
 
 # Removing second line from the exit questionnaire
 
@@ -586,7 +761,7 @@ Exit974$substr_ID_974 <- substr(Exit974$email, 1, 5)
 
 Exit974 <- Exit974[, -which(names(Exit974) %in% "email")]
 
-
+# write.csv(Exit974, "~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R/ExitQuest974.csv", row.names = F)
 
 
 
@@ -599,17 +774,13 @@ Exit974 <- Exit974[, -which(names(Exit974) %in% "email")]
 
 # Reference category is substr_ID
 
-MasterList974 <- list(masterCSV974, Exit974, demog974, CWSQ974_reshaped)
-
+MasterList974 <- list(masterCSV974, Exit974, EQ974, demog974, CWSQ974_reshaped)
 
 
 compiledMaster974 <- Reduce( function (...) merge(..., by = "substr_ID_974", all = F), MasterList974)
 
 
-
-# write.csv(compiledMaster974, "~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R/compiledMaster974.csv")
-
-
+#  write.csv(compiledMaster974, "~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R/compiledMaster974.csv", row.names = F)
 
 
 
@@ -715,43 +886,44 @@ recodedMaster974$genderM1F0 <- factor(recodedMaster974$genderM1F0, levels = c(0,
 # 
 # mapFunct(recodedMaster$edLevel, c(1,2,3,4), c(0,1,2,3))
 
-recodedMaster974$edLevel <- factor(recodedMaster974$edLevel, levels = c(1,2,3,4), labels = c("Primary", "Secondary", "Tertiary", "Other"), ordered = FALSE)
+# Ed level (no longer relevant because already done)
+# recodedMaster974$edLevel <- factor(recodedMaster974$edLevel, levels = c(1,2,3,4), labels = c("Primary", "Secondary", "Tertiary", "Other"), ordered = FALSE)
 
 
-# Marital Status
+# Marital Status (no longer relevant because columns deleted)
 
-recodedMaster974$maritalStat <- factor(recodedMaster974$maritalStat, levels = c(1,2,3,4,5,6), labels = c("Single", "inRelationship", "Married", "Divorced", "Widowed", "Other"), ordered = FALSE)
-
-# language other than english spoken at home
-
-recodedMaster974$langOtherEng <- mapvalues(recodedMaster974$langOtherEng, from = c(2,1), to = c(0,1))
-
-recodedMaster974$langOtherEng <- factor(recodedMaster974$langOtherEng, levels = c(0,1), labels = c("No", "Yes"), ordered = FALSE)
+# recodedMaster974$maritalStat <- factor(recodedMaster974$maritalStat, levels = c(1,2,3,4,5,6), labels = c("Single", "inRelationship", "Married", "Divorced", "Widowed", "Other"), ordered = FALSE)
+# 
+# # language other than english spoken at home (no longer relevant because columns deleted)
+# 
+# recodedMaster974$langOtherEng <- mapvalues(recodedMaster974$langOtherEng, from = c(2,1), to = c(0,1))
+# 
+# recodedMaster974$langOtherEng <- factor(recodedMaster974$langOtherEng, levels = c(0,1), labels = c("No", "Yes"), ordered = FALSE)
 
 
 # coffee every day
 
-recodedMaster974$coffeeEveryday <- mapvalues(recodedMaster974$coffeeEveryday, from = c(1,2), to = c(1,0))
+# recodedMaster974$coffeeEveryday <- mapvalues(recodedMaster974$coffeeEveryday, from = c(1,2), to = c(1,0))
+# 
+# recodedMaster974$coffeeEveryday <- factor(recodedMaster974$coffeeEveryday, levels = c(0,1), labels = c("No", "Yes"), ordered = FALSE)
+# 
+# # tea every day
+# 
+# recodedMaster974$teaEveryday <- mapvalues(recodedMaster974$teaEveryday, from = c(1,2), to = c(1,0))
+# 
+# recodedMaster974$teaEveryday <- factor(recodedMaster974$teaEveryday, levels = c(0,1), labels = c("No", "Yes"), ordered = FALSE)
+# 
+# # cola every day
+# 
+# recodedMaster974$colaEveryday <- mapvalues(recodedMaster974$colaEveryday, from = c(1,2), to = c(1,0))
+# 
+# recodedMaster974$colaEveryday <- factor(recodedMaster974$colaEveryday, levels = c(0,1), labels = c("No", "Yes"), ordered = FALSE)
 
-recodedMaster974$coffeeEveryday <- factor(recodedMaster974$coffeeEveryday, levels = c(0,1), labels = c("No", "Yes"), ordered = FALSE)
+# energy drinks every day (no longer relevant because deleted from demog974)
+# 
+# recodedMaster974$energyDrinksEveryday <- mapvalues(recodedMaster974$energyDrinksEveryday, from = c(1,2), to = c(1,0))
 
-# tea every day
-
-recodedMaster974$teaEveryday <- mapvalues(recodedMaster974$teaEveryday, from = c(1,2), to = c(1,0))
-
-recodedMaster974$teaEveryday <- factor(recodedMaster974$teaEveryday, levels = c(0,1), labels = c("No", "Yes"), ordered = FALSE)
-
-# cola every day
-
-recodedMaster974$colaEveryday <- mapvalues(recodedMaster974$colaEveryday, from = c(1,2), to = c(1,0))
-
-recodedMaster974$colaEveryday <- factor(recodedMaster974$colaEveryday, levels = c(0,1), labels = c("No", "Yes"), ordered = FALSE)
-
-# energy drinks every day
-
-recodedMaster974$energyDrinksEveryday <- mapvalues(recodedMaster974$energyDrinksEveryday, from = c(1,2), to = c(1,0))
-
-recodedMaster974$energyDrinksEveryday <- factor(recodedMaster974$energyDrinksEveryday, levels = c(0,1), labels = c("No", "Yes"), ordered = FALSE)
+# recodedMaster974$energyDrinksEveryday <- factor(recodedMaster974$energyDrinksEveryday, levels = c(0,1), labels = c("No", "Yes"), ordered = FALSE)
 
 
 
@@ -974,9 +1146,43 @@ factoredMaster974$T2Total <- rowSums(factoredMaster974[, T2Names], na.rm = F)
 factoredMaster974$testDiff <- factoredMaster974$T1Total - factoredMaster974$T2Total 
 
 
+
+
+# create factors for the EQ
+
+factoredMaster974$EQWithdrawal <- factoredMaster974$EQ8_NoCaffMakesMiser +
+  factoredMaster974$EQ10_NoCaffAnxious +
+  factoredMaster974$EQ13_NoCaffMakesWithdrawal +
+  factoredMaster974$EQ15_NoCaffFeelSick +
+  factoredMaster974$EQ24_NoCaffNeedCaffDaily
+  factoredMaster974$EQ27_NoCaffMakesDesire +
+  factoredMaster974$EQ32_NoCaffNoFunction +
+  factoredMaster974$EQ35_NoCaffTroubleStartingDay +
+  factoredMaster974$EQ37_TroubleGivingUpCaff +
+  factoredMaster974$EQ40_NoCaffMakesHeadache +
+  factoredMaster974$EQ34_OftenCraveCaff +
+  factoredMaster974$EQ44_CaffHelpsMeGetThroughDay
+
+factoredMaster974$EQEnergyWork <- factoredMaster974$EQ20_CaffMakesAlert +
+  factoredMaster974$EQ1_PicksMeUp +
+  factoredMaster974$EQ45_CaffMakesMoreEnergy +
+  factoredMaster974$EQ6_CaffLessSleepy +
+  factoredMaster974$EQ30_CaffHelpsMeWork +
+  factoredMaster974$EQ16_CaffIncreaseMotiv +
+  factoredMaster974$EQ22_CaffImproveConc +
+  factoredMaster974$EQ41_CaffImprovesAttention
+
+factoredMaster974$EQSocMood <- factoredMaster974$EQ23_CaffMakesFriendly +
+  factoredMaster974$EQ2_BetterConvers +
+  factoredMaster974$EQ42_CaffMakesSociable +
+  factoredMaster974$EQ17_CaffMoreConf +
+  factoredMaster974$EQ31_CaffMakesHappy +
+factoredMaster974$EQ9_CaffImproveMood
+
+
+
+
 ########## Rearrange ####################
-
-
 
 # rearrange columns
 factoredMaster974 <-  factoredMaster974[, c(2, 5, 8, 1, 7, 3, 4, 10, 9, 6, 11, 12:length(factoredMaster974))]
