@@ -1,4 +1,3 @@
-
 setwd("~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R")
 
 library(reshape2)
@@ -19,10 +18,9 @@ master974 <- read.csv("~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Num
 master974 <- master974[!is.na(master974$Exclude_Y1N0),]
 
 # remove the superfluous 'X' column which R wants to read in for some reason even though it's blank
-master974 <- master974[, -which(names(master974) %in% "X")]
+# master974 <- master974[, -which(names(master974) %in% "X")]
 
-# ### turn grouping variables into factors
-# 
+#### turn grouping variables into factors # 
 master974$Paid_Y1N0 <- factor(master974$Paid_Y1N0, 
                              levels = c(1, 2),
                              labels = c("paid", "coursecredit"),
@@ -64,7 +62,7 @@ master974$Verbal_CompliedY1N0 <- factor(master974$Verbal_CompliedY1N0,
 
 master974$Verbal_KnowSuspectY1N0 <- factor(master974$Verbal_KnowSuspectY1N0,
                                         levels = c(1,0),
-                                        labels = c("complied", "didNotComply"),
+                                        labels = c("suspicious", "notSuspicious"),
                                         ordered = F) 
 
 master974$Exclude_Y1N0 <- factor(master974$Exclude_Y1N0,
@@ -73,18 +71,148 @@ master974$Exclude_Y1N0 <- factor(master974$Exclude_Y1N0,
                                  ordered = F)
 
 
-#write.csv(master974, "~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R/master974.csv", row.names = FALSE)
+# write.csv(master974, "~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R/master974.csv", row.names = FALSE)
+
+###############################################################################################
+############## Script for multiple imputation of blood pressure data for 974 ##################
+###############################################################################################
+
+# we are going to impute variables for the missing variables in the blood pressure data. Then we are going to replace those variables in for the missing values. We are going to do this at the compilation stage in the master compile so that the original data (see 'CaffAllocation974.csv') with missing values remains intact. We are going to use knnImputation from the DMwR package rather than multiple imputation using MICE. Multiple imputation is great but you can only do it using lm and it would be better to analyse this data using a mixed model with lmer utilising random intercepts. While MICE does offer a complete function like the knnImputation function below you are forced to choose one of the five imputed datasets and there is no definitive way of choosing which of the five (at least that I have been taught). So instead we are going to replace the missing values with imputed values and run the mixed-effects model on that data. 
+
+# We could probably just have run the knnImputation function on the relevant columns of the master974 dataframe but I thought it better to convert it to long first and do it that way. Should check whether that made any difference.
+
+bpCols <- expand.grid( session = c("Baseline_", "Pre_", "Post_"), hr = c("Systolic", "Diastolic"))
+
+bpColsKeep <- paste(bpCols$session, bpCols$hr, sep = "") 
+
+bpColsKeep <- append(bpColsKeep, c("ID", "substr_ID_974"), 0)
+
+# We get a summary of how many blood pressure variables have NAs. First we subset the data by the columns we want. %in% means 'match'. So the '(names(factoredMaster974) %in% bpColsKeep)' returns a logical vector of the column names in the factoredMaster974 dataframe that match the names listed in the bpColsKeep. The advantage of this method is that it orders the subsetted dataframe in the order that the columns appear in the original, rather than 'data2 <- factoredMaster974[,bpColsKeep] which reorder the columns alphabetically left to right
+
+wideBP <- master974[, which(names(master974) %in% bpColsKeep)]
+
+#_______________________________________NOTE_____________________________________________#
+
+row.names(wideBP) <- wideBP$ID # This allocated the ID number for each participant to the rownames for this mini dataset. This is super important because otherwise it will order things numerically by alphabetised surname instead of according to ID number. This will hurt us downstream unless we're on top of it because the imputed data is based on row number and we need the right one. 
+
+#________________________________________________________________________________________#
+
+# now we're going to convert to a person-period dataframe from the wide person-level one
+library(plyr)
+
+# so we need to create person-level data frames. Each one we get by removing the variables we don't want (essentially so we can keep the ID and substr_ID_974 variables). The reason we want to do this is that we would like the imputation to take into account the timepoint that each missing value should have been measured at.
+bpSys <- wideBP[, -which(names(wideBP) %in% c("Baseline_Diastolic", "Pre_Diastolic", "Post_Diastolic"))]
+bpDia <- wideBP[, -which(names(wideBP) %in% c("Baseline_Systolic", "Pre_Systolic", "Post_Systolic"))]
+
+
+# now we are going to melt them
+bpSysLong <- melt(bpSys, measure.vars = c("Baseline_Systolic", "Pre_Systolic", "Post_Systolic"), var = "Systolic", value.name = "bpm_Sys") 
+
+bpDiaLong <- melt(bpDia, measure.vars = c("Baseline_Diastolic", "Pre_Diastolic", "Post_Diastolic"), var = "Diastolic", value.name = "bpm_Dia")  
+
+# we need to introduce a time variable
+bpSysLong$timeSys <- ifelse(bpSysLong$Systolic == "Baseline_Systolic", 0, ifelse(bpSysLong$Systolic == "Pre_Systolic", 1, 2)) 
+
+bpDiaLong$timeDia <- ifelse(bpDiaLong$Diastolic == "Baseline_Diastolic", 0, ifelse(bpDiaLong$Diastolic == "Pre_Diastolic", 1, 2)) 
+
+
+# now merge the dataframes
+bpLong <- data.frame(bpSysLong, bpDiaLong)
+
+# remove the duplicate rows
+bpLong <-  bpLong[, -which(names(bpLong) %in% c("ID.1", "substr_ID_974.1"))]
+
+
+#########################################################################################################
+######################################## Imputation #####################################################
+#########################################################################################################
+
+# these rows are missing from each
+listBPNAs <- sapply(c("bpm_Sys", "bpm_Dia"), function (x) which(is.na(bpLong[,x]))); listBPNAs
+
+# load the package DMwR, which is the package we will use for imputing the missing values using knnImputation. This imputation is going to be no-flab. If you want to see about how to do all the decision making about what rows to remove and which to keep, and about output tables for decisions, see the multiple imputation folder in the Statistics folder under PhD
+library(DMwR)
+
+# the knnImputation function uses a weighted mean of the closest neighbouring variables. As the distance from the datapoint of interest increases each neighbouring variable is given a lesser weight in the imputation, so the closer the neighbour the more weight it is given. Note: if you select the method argument you can choose median instead of mean e.g. bpLong <- knnImputation(bpLong, k = 10, meth = "median").
+
+bpLongImp <- knnImputation(bpLong, k = 10) # this is the imputed dataframe
+
+bpLongImp == bpLong # this is for checking. The 'NA's returned here should be in the same place as the NAs in the original dataframe, indicating that they have been replaced
+
+
+# this will list the imputed values for all the missing value (the t transposes the dataframe). We will eventually use this as a reference dataframe, contining the replacement values themselves and the row numbers of the bpLong dataset where these replacement values will go. 
+imputedBPVals <- data.frame(t(sapply(1:nrow(listBPNAs), function (x) bpLongImp[listBPNAs[x,1], colnames(listBPNAs)]))); imputedBPVals
+
+# this will replace the row.names of the dataframe above with the ID numbers of the people who had the missing data. So now we have a data frame that has the ID numbers of the missing values and the actual replacement values themselves. We could replace them into the data frame. Note we can only do this this way, listing a single column as the column reference for both, because blood pressure data was delivered, or NOT delivered in the case of the NAs, in systolic/diastolic pairs.
+row.names(imputedBPVals) <- listBPNAs[,"bpm_Sys"]; imputedBPVals
+
+# now we do a for loop where we call the 1st row name of the imputedBPVals reference dataset, convert it to a number, and use it as the row index for the bpLong set. In combination with the bpm_Sys column this is the location on the bpLong dataset of the first missing value. This is all done with the 'bpLong[as.numeric(row.names(imputedBPVals)[i]),"bpm_Sys"]' section. Into this location (previously an NA, we pass the imputed value for this missing value from the imputedBPVals dataframe ('imputedBPVals[i,"bpm_Sys"]'). We do this for all six imputed values in the bpm_Sys column. We then do the same for the bpm_Dia column. 
+
+for (i in 1:nrow(imputedBPVals)) {
+  bpLong[as.numeric(row.names(imputedBPVals)[i]),"bpm_Sys"] <- imputedBPVals[i,"bpm_Sys"]
+  bpLong[as.numeric(row.names(imputedBPVals)[i]),"bpm_Dia"] <- imputedBPVals[i,"bpm_Dia"]
+}
+
+bpLong # there should now be no more missing values in this dataframe
+
+
+########################### convert back to wide frame ########################################## 
+
+# First we need to split the long data frame into two, reshape each of these into wide, then merge. 
+
+# first split. We don't need the time variable any more
+bpLongSysImp <- bpLong[, which(names(bpLong) %in% c("ID", "substr_ID_974", "Systolic", "bpm_Sys"))]
+bpLongDiaImp <- bpLong[, which(names(bpLong) %in% c("ID", "substr_ID_974", "Diastolic", "bpm_Dia"))]
+
+# now recast. Note we can use two variables as our id variables.
+bpSysWide <- reshape(bpLongSysImp, idvar = c("ID", "substr_ID_974"), timevar = "Systolic", direction = "wide", sep = "")
+bpDiaWide <- reshape(bpLongDiaImp, idvar = c("ID", "substr_ID_974"), timevar = "Diastolic", direction = "wide", sep = "")  
+
+# check that the cols haven't been reordered somehow  
+bpSysWide$substr_ID_974 == bpDiaWide$substr_ID_974
+
+# rename cols
+
+wideBPColNamesSys <- c("ID", "substr_ID_974", "Baseline_Systolic", "Pre_Systolic", "Post_Systolic")
+wideBPColNamesDia <- c("ID", "substr_ID_974", "Baseline_Diastolic", "Pre_Diastolic", "Post_Diastolic")
+
+
+colnames(bpSysWide) <- wideBPColNamesSys
+colnames(bpDiaWide) <- wideBPColNamesDia
+
+
+# now we can merge the two dataframes
+
+impWide974 <- merge(bpSysWide, bpDiaWide, by = "ID")
+
+
+# now subset and reorder
+impWide974 <- impWide974[, c("Baseline_Systolic", "Baseline_Diastolic", "Pre_Systolic", "Pre_Diastolic", "Post_Systolic", "Post_Diastolic")]
+
+# round impWide974 to two digits
+impWide974 <- data.frame(sapply(colnames(impWide974), function (x) as.numeric(format(round(impWide974[,x], digits = 2), nsmall = 2))))
+
+# subset the relevant columns from the original dataframe
+checkBPColsMaster974 <- master974[, c("Baseline_Systolic", "Baseline_Diastolic", "Pre_Systolic", "Pre_Diastolic", "Post_Systolic", "Post_Diastolic")]
+
+# now we check them
+impWide974 == checkBPColsMaster974 # should only be NAs in the spots where there are missing values
+
+# now we sub in the imputed columns
+master974[, c("Baseline_Systolic", "Baseline_Diastolic", "Pre_Systolic", "Pre_Diastolic", "Post_Systolic", "Post_Diastolic")] <- impWide974
+
+# one last check. Should return 'integer(0)'
+which(is.na(master974[, c("Baseline_Systolic", "Baseline_Diastolic", "Pre_Systolic", "Pre_Diastolic", "Post_Systolic", "Post_Diastolic")]))
 
 
 ############################### Add RVIP to master using raw RVIP files from the folder ##########################
 
 
-# this needs to have the full.names = T because this specification includes the file path in the name, which is essential
+# This will create a character vector of all the RVIP files. All the file names this needs to have the full.names = T because this specification includes the file path in the name, which is essential
 oldRVIPNames <- list.files("~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R/RVIP_Raw", full.names = T)
 
-# the replace-extension command is from pathological package
+# the replace-extension command is from pathological package. But we don't really need to replace the extension because the read.delim function in the for-loop below reads the .iqdat files just fine
 #newRVIPNames <- replace_extension(oldRVIPNames, "csv", include_dir = T)
-
 
 # here we are creating empty variables to put the first entry of the for-loop into
 RT <- NULL
@@ -97,7 +225,7 @@ subjectRVIPRaw <- NULL
 # this is the for-loop
 for (n in 1:length(oldRVIPNames)) { #specifies a loop the same length as the number of elements in the oldRVIPNames vector of data frame names
   singleSet <- read.delim(oldRVIPNames[n]) # reads each data frame in turn to an object we have called singleSet
-  RT[n] <- mean(subset(singleSet, values.Hit == 1)$latency)# this returns entries in the response latency column for the times for only the rows where the participant scored a hit
+  RT[n] <- mean(subset(singleSet, values.Hit == 1)$latency)# this returns entries in the response latency column in each dataframe for each RVIP session for only the rows where the participant scored a hit
   dateRVIPRaw[n] <- as.character(singleSet$date[1])
   timeRVIPRaw[n] <- as.character(singleSet$time[1])
   sumHitRVIPRaw[n] <- max(singleSet$values.SumHit)
@@ -206,7 +334,7 @@ RVIP974ColNamesSub <- gsub("(.*)([A-Z][0-9])$", "\\2\\1", RVIP974ColNames)
 # rename col names 1st arg is dataframe, second is old names, last is new names.
 setnames(RVIP974Wide, RVIP974ColNames, RVIP974ColNamesSub)
 
-#write.csv(RVIP974Wide, "~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R/RVIP974Wide.csv", row.names = FALSE)
+# write.csv(RVIP974Wide, "~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R/RVIP974Wide.csv", row.names = FALSE)
 
 ################### merge RVIP files with master csv file ############################# 
 
@@ -379,6 +507,7 @@ colsToKeep <- c("genderM1F0",
 # the command below selects those columns in demog974 which are included in the vector colsToKeep
 
 demog974 <- demog974[, which(names(demog974) %in% colsToKeep)] #if you wanted to remove these columns you'd simply put a - in front of which
+
 
 # Now we add a column where each entry is a substring of the email column. We will use this to merge with the master csv above.
 
@@ -1200,24 +1329,6 @@ factoredMaster974 <- factoredMaster974[order(factoredMaster974$ID),]
 
 # write to file
 write.csv(factoredMaster974, "~/Dropbox/PhD/Placebo/Experiments/Caffeine Experiment Number 2_Genes and Withdrawal_2014_974/data/974_Qualtrics_R/factoredMaster974.csv", row.names = F)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
